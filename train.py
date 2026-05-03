@@ -2,31 +2,24 @@ import torch
 from torch.utils.data import DataLoader
 from model import Net
 from dataset import DummyDataset
-import pyqtgraph as pg
-import numpy as np
 import threading
+
+from src.ui.app import run_visualisation_app
+from src.core.telemetry import TelemetryRegistry
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+print("DEVICE:", device)
+
 EPOCHS = 1000
+BATCH_SIZE = 1000
 
-loss_history = np.zeros(EPOCHS)
-app = pg.mkQApp()
+telemetry_registry = TelemetryRegistry()
 
-win = pg.GraphicsLayoutWidget(show=True)
-plot = win.addPlot()
-curve = plot.plot()
-
-def refresh():
-    curve.setData(loss_history)
-
-timer = pg.QtCore.QTimer()
-timer.timeout.connect(refresh)
-timer.start(50)
 
 def train():
-    ds = DummyDataset()
-    dl = DataLoader(ds, batch_size=32, shuffle=True)
+    ds = DummyDataset(n=1000)
+    dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True)
 
     model = Net(10, 32, 2).to(device)
     opt = torch.optim.Adam(model.parameters(), lr=1e-3)
@@ -36,16 +29,16 @@ def train():
         for x, y in dl:
             x, y = x.to(device), y.to(device)
 
-            logits = model(x)
-            loss = loss_fn(logits, y)
+            out = model(x)
+            loss = loss_fn(out, y)
 
             opt.zero_grad()
             loss.backward()
             opt.step()
 
-        loss_history[:-1] = loss_history[1:]
-        loss_history[-1] = loss.item()
+        telemetry_registry.log_loss(loss.item())
+
 
 threading.Thread(target=train, daemon=True).start()
 
-pg.exec()
+run_visualisation_app(telemetry_registry)
