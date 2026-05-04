@@ -2,29 +2,11 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from src.core.types import Candle
+
 DATE_CUTOFF_FOR_EVAL = 20240101  # date format used by nc dataset
 
-DATASET_PATH = ("daily", "pl", "nc stocks")
 
-data_raw = os.path.join("data", "raw", *DATASET_PATH)
-data_out = os.path.join("data", "training")
-data_eval = os.path.join("data", "training")
-
-files = list(Path(data_raw).iterdir())
-
-
-@dataclass
-class Candle:
-    ticker: str
-    interval: str
-    date: float
-    time: float
-    price_open: float
-    price_close: float
-    price_high: float
-    price_low: float
-    volume: float
-    open_interval: float
 
 
 def serialize_stooq_file(filepath: str):
