@@ -78,25 +78,41 @@ class CandleTrainingPair:
         prediction_offsets: list[int],
     ):
         self.anchor_index = anchor_index
-        self.candle_history: list[Candle] = []
-        self.candle_prediction: list[Candle] = []
+        self.flattened_history: list[float] = []
+        self.flattened_prediction: list[float] = []
+
+        candle_history: list[Candle] = []
+        candle_prediction: list[Candle] = []
 
         hist_ranges = offsets_to_ranges(history_offsets)
         pred_ranges = offsets_to_ranges(prediction_offsets)
         a = anchor_index
 
+        # FIXME: NORMALIZE EVERY PRICE TO ANCHOR
+
         for r in hist_ranges:
             candle = candle_sequence.get_merged_candle(a - r[1], a - r[0])
-            self.candle_history.append(candle)
+            candle_history.append(candle)
 
         for r in pred_ranges:
             candle = candle_sequence.get_merged_candle(a + r[0], a + r[1])
-            self.candle_prediction.append(candle)
+            candle_prediction.append(candle)
+
+        for candle in candle_history:
+            self.flattened_history.append(candle["volume"])
+            self.flattened_history.append(candle["price_open"])
+            self.flattened_history.append(candle["price_close"])
+            self.flattened_history.append(candle["price_low"])
+            self.flattened_history.append(candle["price_high"])
+
+        for candle in candle_prediction:
+            self.flattened_prediction.append(candle["price_low"])
+            self.flattened_prediction.append(candle["price_high"])
 
     @property
     def x(self) -> torch.Tensor:
-        return torch.Tensor(self.candle_history)
+        return torch.Tensor(self.flattened_history)
 
     @property
     def y(self) -> torch.Tensor:
-        return torch.Tensor(self.candle_prediction)
+        return torch.Tensor(self.flattened_prediction)

@@ -17,11 +17,15 @@ BATCH_SIZE = 1000
 telemetry_registry = TelemetryRegistry()
 
 
+INPUT_CANDLES = 5
+OUTPUT_CANDLES = 2
+
+
 def train():
-    ds = FinancialDataset(5, 2)
+    ds = FinancialDataset(INPUT_CANDLES, OUTPUT_CANDLES)
     dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True)
 
-    model = Net(10, 32, 2).to(device)
+    model = Net(ds.net_inputs, 32, ds.net_outputs).to(device)
     opt = torch.optim.Adam(model.parameters(), lr=1e-3)
     loss_fn = torch.nn.CrossEntropyLoss()
 

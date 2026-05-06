@@ -28,6 +28,9 @@ files = list(Path(DATA_RAW).iterdir())
 
 class FinancialDataset(Dataset):
     def __init__(self, history_count: int, prediction_count: int):
+        self.net_inputs = history_count * 5
+        self.net_outputs = prediction_count * 2
+
         training_pairs: list[CandleTrainingPair] = []
         history_offsets = fib_offsets(history_count)
         prediction_offsets = fib_offsets(prediction_count)
@@ -55,8 +58,8 @@ class FinancialDataset(Dataset):
                 training_pairs.append(candle_training_pair)
 
         n = len(training_pairs)
-        self.x = torch.zeros(n, history_count)
-        self.y = torch.zeros(n, prediction_count)
+        self.x = torch.zeros(n, self.net_inputs)
+        self.y = torch.zeros(n, self.net_outputs)
 
         for i in range(n):
             self.x[i] = training_pairs[i].x
