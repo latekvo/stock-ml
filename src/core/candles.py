@@ -23,6 +23,8 @@ class CandleSequence:
         self.date_end: int | None = None
         self.candles: list[Candle] = []
 
+        assert len(candle_list) > 0
+
         for candle in candle_list:
             candle_date = candle["date_start"]
 

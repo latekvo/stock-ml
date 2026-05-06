@@ -6,14 +6,11 @@ def serialize_stooq_file(filepath: str) -> CandleSequence:
         # 1st line is header
         contents = f.read().split("\n")[1:-1]
 
-        ticker = None
+        ticker: str | None = None
         interval = None
-        candles = []
+        candles: list[Candle] = []
 
         for datapoint in contents:
-            if len(datapoint) < 2:
-                break  # EOF
-
             (
                 extracted_ticker,
                 extracted_interval,

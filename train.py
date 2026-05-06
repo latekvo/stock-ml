@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
 from model import Net
-from dataset import DummyDataset
+from dataset import FinancialDataset
 import threading
 
 from src.ui.app import run_visualisation_app
@@ -18,7 +18,7 @@ telemetry_registry = TelemetryRegistry()
 
 
 def train():
-    ds = DummyDataset(n=1000)
+    ds = FinancialDataset(5, 2)
     dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True)
 
     model = Net(10, 32, 2).to(device)

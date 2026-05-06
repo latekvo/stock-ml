@@ -35,7 +35,13 @@ class FinancialDataset(Dataset):
 
         for file in files:
             filename = file.absolute().as_posix()
-            candle_sequence = serialize_stooq_file(filename)
+
+            try:
+                print("foo")
+                candle_sequence = serialize_stooq_file(filename)
+            except:
+                print("Skipping - Error when reading:", filename)
+                continue
 
             anchor_end_index = history_offsets[-1]
 
