@@ -1,5 +1,9 @@
 from typing import TypedDict
 
+import torch
+
+from src.core.utils import offsets_to_ranges
+
 
 class Candle(TypedDict):
     date_start: int
@@ -32,11 +36,58 @@ class CandleSequence:
 
         assert self.date_start is not None and self.date_end is not None
 
+    def get_merged_candle(self, from_idx: int, to_idx_incl: int):
+        first = self.candles[from_idx]
+        last = self.candles[to_idx_incl]
 
-class CandleDataset:
-    anchor_date: int
-    candle_history: list[Candle]
-    candle_prediction: list[Candle]
+        merged = Candle(
+            merged_count=1,
+            date_start=first["date_start"],
+            price_open=first["price_close"],
+            price_close=last["price_close"],
+            price_high=last["price_high"],
+            price_low=last["price_low"],
+            volume=last["volume"],
+        )
 
-    def __init__(self, sequence, anchor_date, history_offsets, prediction_offsets):
-        pass
+        for i in range(from_idx, to_idx_incl):
+            candle = self.candles[i]
+            merged["merged_count"] += 1
+            merged["price_high"] = max(candle["price_high"], merged["price_high"])
+            merged["price_low"] = min(candle["price_low"], merged["price_low"])
+            merged["volume"] += candle["volume"]
+
+        return merged
+
+
+class CandleTrainingPair:
+    def __init__(
+        self,
+        candle_sequence: CandleSequence,
+        anchor_index: int,
+        history_offsets: list[int],
+        prediction_offsets: list[int],
+    ):
+        self.anchor_index = anchor_index
+        self.candle_history: list[Candle] = []
+        self.candle_prediction: list[Candle] = []
+
+        hist_ranges = offsets_to_ranges(history_offsets)
+        pred_ranges = offsets_to_ranges(prediction_offsets)
+        a = anchor_index
+
+        for r in hist_ranges:
+            candle = candle_sequence.get_merged_candle(a - r[1], a - r[0])
+            self.candle_history.append(candle)
+
+        for r in pred_ranges:
+            candle = candle_sequence.get_merged_candle(a + r[0], a + r[1])
+            self.candle_prediction.append(candle)
+
+    @property
+    def x(self) -> torch.Tensor:
+        return torch.Tensor(self.candle_history)
+
+    @property
+    def y(self) -> torch.Tensor:
+        return torch.Tensor(self.candle_prediction)

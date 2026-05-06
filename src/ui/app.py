@@ -8,7 +8,7 @@ def run_visualisation_app(
     def refresh():
         curve.setData(telemetry_registry.loss_history)
 
-    app = pg.mkQApp()
+    pg.mkQApp()
 
     win = pg.GraphicsLayoutWidget(show=True)
 
@@ -16,6 +16,6 @@ def run_visualisation_app(
     curve = plot.plot()
     timer = pg.QtCore.QTimer(curve)
     timer.timeout.connect(refresh)
-    timer.start(50)
+    timer.start(20)
 
     pg.exec()

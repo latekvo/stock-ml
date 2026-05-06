@@ -4,7 +4,7 @@ from pathlib import Path
 from torch.utils.data import Dataset
 import torch
 
-from core.utils import fib_offsets
+from src.core.utils import fib_offsets
 from src.core.serialization import serialize_stooq_file
 from src.core.candles import CandleTrainingPair
 
