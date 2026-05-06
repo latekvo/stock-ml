@@ -1,25 +1,22 @@
-import os
-from dataclasses import dataclass
-from pathlib import Path
-
-from src.core.types import Candle
-
-DATE_CUTOFF_FOR_EVAL = 20240101  # date format used by nc dataset
+from src.core.candles import Candle, CandleSequence
 
 
-
-
-def serialize_stooq_file(filepath: str):
+def serialize_stooq_file(filepath: str) -> CandleSequence:
     with open(filepath, "r") as f:
         # 1st line is header
         contents = f.read().split("\n")[1:-1]
 
+        ticker = None
+        interval = None
         candles = []
 
         for datapoint in contents:
+            if len(datapoint) < 2:
+                break  # EOF
+
             (
-                ticker,
-                interval,
+                extracted_ticker,
+                extracted_interval,
                 date,
                 time,
                 price_open,
@@ -30,27 +27,19 @@ def serialize_stooq_file(filepath: str):
                 open_interval,
             ) = datapoint.split(",")
 
+            ticker = extracted_ticker
+            interval = extracted_interval
+
             candles.append(
                 Candle(
-                    ticker,
-                    interval,
-                    float(date),
-                    float(time),
+                    int(date),
+                    int(time),
                     float(price_open),
                     float(price_close),
                     float(price_high),
                     float(price_low),
                     float(volume),
-                    float(open_interval),
                 )
             )
 
-        return candles
-
-
-for file in files:
-    filename = file.absolute().as_posix()
-    candles = serialize_stooq_file(filename)
-    print(file.absolute().as_posix(), len(candles))
-
-samples_out = []
+        return CandleSequence(ticker, interval, candles)
