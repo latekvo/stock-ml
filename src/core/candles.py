@@ -1,12 +1,9 @@
-from dataclasses import dataclass
-
-from core.utils import fib_offsets
+from typing import TypedDict
 
 
-@dataclass
-class Candle:
-    date: int
-    time: int
+class Candle(TypedDict):
+    date_start: int
+    merged_count: int  # =1 default; >1 for merged
     price_open: float
     price_close: float
     price_high: float

@@ -30,16 +30,16 @@ def serialize_stooq_file(filepath: str) -> CandleSequence:
             ticker = extracted_ticker
             interval = extracted_interval
 
-            candles.append(
-                Candle(
-                    int(date),
-                    int(time),
-                    float(price_open),
-                    float(price_close),
-                    float(price_high),
-                    float(price_low),
-                    float(volume),
-                )
+            candle = Candle(
+                date_start=int(date),
+                merged_count=int(time),
+                price_open=float(price_open),
+                price_close=float(price_close),
+                price_high=float(price_high),
+                price_low=float(price_low),
+                volume=float(volume),
             )
+
+            candles.append(candle)
 
         return CandleSequence(ticker, interval, candles)
