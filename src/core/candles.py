@@ -12,21 +12,22 @@ class Candle(TypedDict):
 
 
 class CandleSequence:
-    ticker: str
-    interval: str
-    date_start: int = None
-    date_end: int = None
-    candles: list[Candle] = []
-
-    def __init__(self, ticker, interval, candles: list[Candle]):
+    def __init__(self, ticker, interval, candle_list: list[Candle]):
         self.ticker = ticker
         self.interval = interval
+        self.date_start: int | None = None
+        self.date_end: int | None = None
+        self.candles: list[Candle] = []
 
-        for candle in candles:
-            if self.date_start is None or candle.date < self.date_start:
-                self.date_start = candle.date
-            if self.date_end is None or candle.date > self.date_end:
-                self.date_end = candle.date
+        for candle in candle_list:
+            candle_date = candle["date_start"]
+
+            # TODO: We aren't handling candle merged count because we don't need to for now
+
+            if self.date_start is None or candle_date < self.date_start:
+                self.date_start = candle_date
+            if self.date_end is None or candle_date > self.date_end:
+                self.date_end = candle_date
             self.candles.append(candle)
 
         assert self.date_start is not None and self.date_end is not None
