@@ -37,15 +37,14 @@ class FinancialDataset(Dataset):
             filename = file.absolute().as_posix()
 
             try:
-                print("foo")
                 candle_sequence = serialize_stooq_file(filename)
             except:
                 print("Skipping - Error when reading:", filename)
                 continue
 
-            anchor_end_index = history_offsets[-1]
+            anchor_end_index = len(candle_sequence) - prediction_offsets[-1]
 
-            for anchor_index in range(anchor_start_index, anchor_end_index + 1):
+            for anchor_index in range(anchor_start_index, anchor_end_index):
                 candle_training_pair = CandleTrainingPair(
                     candle_sequence,
                     anchor_index,

@@ -38,7 +38,14 @@ class CandleSequence:
 
         assert self.date_start is not None and self.date_end is not None
 
+    def __len__(self):
+        return len(self.candles)
+
     def get_merged_candle(self, from_idx: int, to_idx_incl: int):
+        assert from_idx >= 0
+        assert to_idx_incl < len(self.candles)
+        assert from_idx <= to_idx_incl
+
         first = self.candles[from_idx]
         last = self.candles[to_idx_incl]
 
