@@ -3,7 +3,7 @@ from pathlib import Path
 
 from torch.utils.data import Dataset
 import torch
-
+from tqdm import tqdm
 from src.core.utils import fib_offsets
 from src.core.serialization import serialize_stooq_file
 from src.core.candles import CandleTrainingPair
@@ -23,13 +23,16 @@ class FinancialDataset(Dataset):
         prediction_offsets = fib_offsets(prediction_count)
         anchor_start_index = history_offsets[-1]
 
-        for file in files:
+        skipped_files: list[str] = []
+        progress_bar = tqdm(range(len(files)), desc="Loading files")
+
+        for file, _ in zip(files, progress_bar):
             filename = file.absolute().as_posix()
 
             try:
                 candle_sequence = serialize_stooq_file(filename)
             except:
-                print("Skipping - Error when reading:", filename)
+                skipped_files.append(str(file))
                 continue
 
             anchor_end_index = len(candle_sequence) - prediction_offsets[-1]
@@ -44,11 +47,15 @@ class FinancialDataset(Dataset):
 
                 training_pairs.append(candle_training_pair)
 
+        print("Skipped", len(skipped_files), "files:", *skipped_files)
+
         n = len(training_pairs)
         self.x = torch.zeros(n, self.net_inputs)
         self.y = torch.zeros(n, self.net_outputs)
 
-        for i in range(n):
+        progress_bar = tqdm(range(n), desc="Merging dataset")
+
+        for i in progress_bar:
             self.x[i] = training_pairs[i].x
             self.y[i] = training_pairs[i].y
 
