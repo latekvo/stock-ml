@@ -17,8 +17,8 @@ BATCH_SIZE = 1000
 telemetry_registry = TelemetryRegistry()
 
 
-INPUT_CANDLES = 5
-OUTPUT_CANDLES = 2
+INPUT_CANDLES = 7
+OUTPUT_CANDLES = 3
 
 
 def train():
@@ -30,7 +30,7 @@ def train():
     opt = torch.optim.AdamW(
         model.parameters(),
         lr=1e-4,
-        weight_decay=0.01,
+        weight_decay=0.015,
         foreach=True,
         fused=True,
     )
