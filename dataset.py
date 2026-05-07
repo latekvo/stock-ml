@@ -8,19 +8,6 @@ from src.core.utils import fib_offsets
 from src.core.serialization import serialize_stooq_file
 from src.core.candles import CandleTrainingPair
 
-
-class DummyDataset(Dataset):
-    def __init__(self, n=1000):
-        self.x = torch.randn(n, 10)
-        self.y = (self.x.sum(dim=1) > 0).long()
-
-    def __len__(self):
-        return len(self.x)
-
-    def __getitem__(self, i):
-        return self.x[i], self.y[i]
-
-
 DATA_RAW = os.path.join("data", "daily", "pl", "nc stocks")
 TRAINING_CUTOFF_DATE = 20220101
 files = list(Path(DATA_RAW).iterdir())

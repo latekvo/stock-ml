@@ -25,9 +25,15 @@ def train():
     ds = FinancialDataset(INPUT_CANDLES, OUTPUT_CANDLES)
     dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True)
 
-    model = Net(ds.net_inputs, 32, ds.net_outputs).to(device)
-    opt = torch.optim.Adam(model.parameters(), lr=1e-3)
+    model = Net(ds.net_inputs, 128, ds.net_outputs).to(device)
     loss_fn = torch.nn.CrossEntropyLoss()
+    opt = torch.optim.AdamW(
+        model.parameters(),
+        lr=1e-4,
+        weight_decay=0.01,
+        foreach=True,
+        fused=True,
+    )
 
     for epoch in range(EPOCHS):
         for x, y in dl:
