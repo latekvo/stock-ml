@@ -41,6 +41,9 @@ class CandleSequence:
     def __len__(self):
         return len(self.candles)
 
+    def get_candle(self, idx):
+        return self.get_merged_candle(idx, idx)
+
     def get_merged_candle(self, from_idx: int, to_idx_incl: int):
         assert from_idx >= 0
         assert to_idx_incl < len(self.candles)
@@ -88,14 +91,32 @@ class CandleTrainingPair:
         pred_ranges = offsets_to_ranges(prediction_offsets)
         a = anchor_index
 
-        # FIXME: NORMALIZE EVERY PRICE TO ANCHOR
+        # FIXME: NORMALIZE EVERY PRICE TO [-1;1]
+        #  This is to ignore absolute movement velocities
+        #   to focus on relative movement velocities
+
+        anchor = candle_sequence.get_candle(a)
+        anchor["volume"] = max(1, anchor["volume"])
+        anchor["price_open"] = max(0.01, anchor["price_open"])
+        anchor["price_close"] = max(0.01, anchor["price_close"])
+        anchor["price_low"] = max(0.01, anchor["price_low"])
+        anchor["price_high"] = max(0.01, anchor["price_high"])
+
+        def normalize(c: Candle):
+            c["volume"] = c["volume"] / anchor["volume"]
+            c["price_open"] = c["price_open"] / anchor["price_open"]
+            c["price_close"] = c["price_close"] / anchor["price_close"]
+            c["price_low"] = c["price_low"] / anchor["price_low"]
+            c["price_high"] = c["price_high"] / anchor["price_high"]
 
         for r in hist_ranges:
             candle = candle_sequence.get_merged_candle(a - r[1], a - r[0])
+            normalize(candle)
             candle_history.append(candle)
 
         for r in pred_ranges:
             candle = candle_sequence.get_merged_candle(a + r[0], a + r[1])
+            normalize(candle)
             candle_prediction.append(candle)
 
         for candle in candle_history:

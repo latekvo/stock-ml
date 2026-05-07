@@ -32,7 +32,6 @@ def train():
         lr=1e-4,
         weight_decay=0.015,
         foreach=True,
-        fused=True,
     )
 
     for epoch in range(EPOCHS):
