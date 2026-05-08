@@ -1,15 +1,20 @@
+from typing import Literal
+
 from torch import nn
 
 
 class Net(nn.Module):
-    def __init__(self, in_dim, p_per_layer, layers, out_dim):
+    def __init__(self, in_dim, p_per_layer, layers, a_fn: Literal["ReLU", "GELU"], out_dim):
         super().__init__()
+
+        activation = nn.GELU if a_fn == "GELU" else nn.ReLU
+
         self.net = nn.Sequential(
             nn.Linear(in_dim, p_per_layer),
-            nn.ReLU(),
+            activation(),
             *[
                 nn.Linear(p_per_layer, p_per_layer),
-                nn.ReLU()
+                activation()
             ] * layers,
             nn.Linear(p_per_layer, out_dim),
         )

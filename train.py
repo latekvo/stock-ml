@@ -1,7 +1,6 @@
-from typing import TypedDict
+from typing import TypedDict, Literal
 
 import torch
-from torch.utils.data import DataLoader
 from model import Net
 from dataset import FinancialDataset
 import threading
@@ -16,6 +15,14 @@ print("DEVICE:", device)
 
 telemetry_registry = TelemetryRegistry()
 
+COLORS = {
+    'r': (255, 0, 0, 255),
+    'g': (0, 255, 0, 255),
+    'b': (0, 0, 255, 255),
+    'c': (0, 255, 255, 255),
+    'm': (255, 0, 255, 255),
+    'y': (255, 255, 0, 255),
+}
 
 INPUT_CANDLES = 7
 OUTPUT_CANDLES = 3
@@ -25,6 +32,8 @@ class ModelVariant(TypedDict):
     p_per_layer: int
     layers: int
     learning_rate: float
+    color: tuple[int, int, int, int]
+    a_fn: Literal["ReLU", "GELU"]
 
 # 1st benchmark results:
 # - LR noise seems to be proportional to: (lr*p_per_layer)/layers
@@ -40,6 +49,7 @@ class ModelVariant(TypedDict):
 # 1st benchmark followups:
 # - try to achieve grokking with 32/5 model, then test how LR and WD affect the timeline
 # - find optimal p_per_layer & layers at 1e-3 LR.
+# =====================
 # 2nd benchmark results:
 # - 32/4 model took SIGNIFICANTLY longer to train
 # - 32/8 model had almost no advantage over 32/6 - 0.00015 loss difference (0.00037% CE loss difference)
@@ -50,33 +60,29 @@ class ModelVariant(TypedDict):
 # 2nd benchmark conditions:
 # - const 7/3 i/o with fib offsets + candle merging
 # - net used 32/6 baseline, */2 p_per_layer variance, +-2 layers variance. LR constant 1e-3
-# - ran tests for 1 hr (~750 epochs) on M4 Pro
+# - ran tests for 1.5 hr (~1100 epochs) on M4 Pro
 # 2nd benchmark followups:
 # - test 7 vs 8 layers, try 24 vs 32 p_per_layer
 # - compare GELU vs ReLU
 # - compare even higher LR
+# =====================
+# 3rd benchmark results:
+# - GELU performs significatnly better than ReLU. Loss is unfortunately inconsistant.
+# - 5e-2 (50x baseline) LR **significantly** improves train time without degrading loss. Sticking to 1e-2 for future tests.
+# - 24/7 with 50x LR was extremely chaotic but ultimately outperformed 32/8
+# - GELU, 24/7(50*lr), 32/8 all achieved 10.7673 within 1500 epochs, baseline at epoch 2100 - ended training early.
 
-baseline = ModelVariant(name='baseline', p_per_layer=32, layers=6, learning_rate=1e-3)
-small = ModelVariant(name='small', p_per_layer=16, layers=6, learning_rate=1e-3)
-large = ModelVariant(name='large', p_per_layer=64, layers=6, learning_rate=1e-3)
-shallow = ModelVariant(name='shallow', p_per_layer=32, layers=4, learning_rate=1e-3)
-deep = ModelVariant(name='deep', p_per_layer=32, layers=8, learning_rate=1e-3)
+baseline = ModelVariant(name='baseline', p_per_layer=24, layers=7, learning_rate=1e-3, color=COLORS['m'], a_fn="ReLU")
+gelu = ModelVariant(name='gelu', p_per_layer=24, layers=7, learning_rate=1e-3, color=COLORS['r'], a_fn="GELU")
+high_lr = ModelVariant(name='high_lr', p_per_layer=24, layers=7, learning_rate=5e-2, color=COLORS['c'], a_fn="ReLU")
+deep_large = ModelVariant(name='deep_large', p_per_layer=32, layers=8, learning_rate=1e-3, color=COLORS['y'], a_fn="ReLU")  # keeping old for reference
 
 MODEL_VARIANTS: list[ModelVariant] = [
     baseline,
-    small,
-    large,
-    shallow,
-    deep,
+    gelu,
+    high_lr,
+    deep_large
 ]
-
-COLORS = {
-    'baseline': (255, 0, 255, 255),
-    'small': (255, 0, 0, 255),
-    'large': (0, 255, 0, 255),
-    'shallow': (0, 255, 255, 255),
-    'deep': (255, 255, 0, 255),
-}
 
 def train():
     ds = FinancialDataset(INPUT_CANDLES, OUTPUT_CANDLES)
@@ -91,7 +97,15 @@ def train():
 
     for variant in MODEL_VARIANTS:
         name = variant['name']
-        models[name] = Net(ds.net_inputs, variant['p_per_layer'], variant['layers'], ds.net_outputs).to(device)
+
+        models[name] = Net(
+            ds.net_inputs,
+            variant['p_per_layer'],
+            variant['layers'],
+            variant['a_fn'],
+            ds.net_outputs
+        ).to(device)
+
         opts[name] = torch.optim.AdamW(
             models[name].parameters(),
             lr=variant['learning_rate'],
@@ -127,7 +141,7 @@ def train():
 
 for variant in MODEL_VARIANTS:
     name = variant['name']
-    e_color = COLORS[name]
+    e_color = variant['color']
     color = list(e_color)
     color[3] = 128
     t_color = tuple(color)
