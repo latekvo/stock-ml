@@ -26,6 +26,19 @@ class ModelVariant(TypedDict):
     layers: int
     learning_rate: float
 
+# 1st benchmark results:
+# - LR noise seems to be proportional to: (lr*p_per_layer)/layers
+# - Higher total param counts increase effective LR
+# - few-layer models perform poorly, but are better at generalization
+# - deep-models despite higher memorization rates perform substantially better
+# - p_per_layer seems to have very little effect on the model's loss
+# - best achieved loss was 10.96 CrossEntropy with 64/3 model.
+# 1st benchmark variants:
+# - 64/2 baseline, */2 p_per_layer variance, +-1 layers variance. LR constant 1e-4
+# 1st followups:
+# - try to achieve grokking with 32/5 model, then test how LR and WD affect the timeline
+# - find optimal p_per_layer & layers at 1e-3 LR.
+
 baseline = ModelVariant(name='baseline', p_per_layer=64, layers=2, learning_rate=1e-4)
 small = ModelVariant(name='small', p_per_layer=32, layers=2, learning_rate=1e-4)
 large = ModelVariant(name='large', p_per_layer=128, layers=2, learning_rate=1e-4)
