@@ -22,8 +22,8 @@ OUTPUT_CANDLES = 3
 def train():
     ds = FinancialDataset(INPUT_CANDLES, OUTPUT_CANDLES)
 
-    x = ds.x.to(device, non_blocking=True)
-    y = ds.y.to(device, non_blocking=True)
+    t_x = ds.t_x.to(device, non_blocking=True)
+    t_y = ds.t_y.to(device, non_blocking=True)
 
     model = Net(ds.net_inputs, 128, ds.net_outputs).to(device)
     loss_fn = torch.nn.CrossEntropyLoss()
@@ -35,13 +35,13 @@ def train():
     )
 
     if device_name == "cuda":
-        model = torch.compile(model)
+        # requires modern GPU: model = torch.compile(model)
         torch.backends.cudnn.benchmark = True
         torch.set_float32_matmul_precision("high")
 
     while True:
-        out = model(x)
-        loss = loss_fn(out, y)
+        out = model(t_x)
+        loss = loss_fn(out, t_y)
 
         opt.zero_grad()
         loss.backward()

@@ -52,6 +52,9 @@ class CandleTrainingPair:
             normalize(candle)
             candle_prediction.append(candle)
 
+        self.first_prediction_date = candle_prediction[0]["date_start"]
+        self.last_prediction_date = candle_prediction[-1]["date_start"] + 1
+
         for candle in candle_history:
             self.flattened_history.append(candle["volume"])
             self.flattened_history.append(candle["price_open"])
