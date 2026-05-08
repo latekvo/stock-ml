@@ -6,7 +6,7 @@ from torch.nn import Module
 Act = Literal["ReLU", "GELU", "SiLU"]
 
 class Net(nn.Module):
-    def __init__(self, in_dim, out_dim, p_per_layer = 24, l_count = 8, act: Act = "GELU", use_residual: bool = False):
+    def __init__(self, in_dim, out_dim, p_per_layer = 24, l_count = 8, act: Act = "GELU", use_residual: bool = False, normalize: bool = False):
         super().__init__()
 
         self.use_residual = use_residual
@@ -24,12 +24,19 @@ class Net(nn.Module):
         ]
 
         for _ in range(l_count):
-            layers.append(
-                nn.Sequential(
+            if normalize:
+                layer = nn.Sequential(
+                    nn.Linear(p_per_layer, p_per_layer),
+                    nn.LayerNorm(p_per_layer),
+                    activation(),
+                )
+            else:
+                layer = nn.Sequential(
                     nn.Linear(p_per_layer, p_per_layer),
                     activation(),
                 )
-            )
+
+            layers.append(layer)
 
         layers.append(nn.Linear(p_per_layer, out_dim))
 
