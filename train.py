@@ -24,6 +24,8 @@ def train():
 
     t_x = ds.t_x.to(device, non_blocking=True)
     t_y = ds.t_y.to(device, non_blocking=True)
+    e_x = ds.e_x.to(device, non_blocking=True)
+    e_y = ds.e_y.to(device, non_blocking=True)
 
     model = Net(ds.net_inputs, 128, ds.net_outputs).to(device)
     loss_fn = torch.nn.CrossEntropyLoss()
@@ -47,7 +49,11 @@ def train():
         loss.backward()
         opt.step()
 
+        eval_out = model(e_x)
+        eval_loss = loss_fn(eval_out, e_y)
+
         telemetry_registry.log_loss(loss.item())
+        telemetry_registry.log_eval_loss(eval_loss.item())
 
 
 threading.Thread(target=train, daemon=True).start()

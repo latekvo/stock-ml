@@ -6,15 +6,19 @@ def run_visualisation_app(
     telemetry_registry: TelemetryRegistry,
 ):
     def refresh():
-        curve.setData(telemetry_registry.loss_history)
+        training_loss_curve.setData(telemetry_registry.loss_history)
+        eval_loss_curve.setData(telemetry_registry.eval_loss_history)
 
     pg.mkQApp()
 
     win = pg.GraphicsLayoutWidget(show=True)
 
-    plot = win.addPlot()
-    curve = plot.plot()
-    timer = pg.QtCore.QTimer(curve)
+    loss_plot = win.addPlot()
+    
+    training_loss_curve = loss_plot.plot(pen='r')
+    eval_loss_curve = loss_plot.plot(pen='w')
+    
+    timer = pg.QtCore.QTimer(training_loss_curve)
     timer.timeout.connect(refresh)
     timer.start(20)
 
