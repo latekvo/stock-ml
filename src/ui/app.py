@@ -5,20 +5,23 @@ import pyqtgraph as pg
 def run_visualisation_app(
     telemetry_registry: TelemetryRegistry,
 ):
+    curves = {}
+    names = telemetry_registry.get_loss_entries()
+
     def refresh():
-        training_loss_curve.setData(telemetry_registry.loss_history)
-        eval_loss_curve.setData(telemetry_registry.eval_loss_history)
+        for name in names:
+            curves[name].setData(telemetry_registry.get_loss_history(name))
 
     pg.mkQApp()
-
     win = pg.GraphicsLayoutWidget(show=True)
-
     loss_plot = win.addPlot()
-    
-    training_loss_curve = loss_plot.plot(pen='r')
-    eval_loss_curve = loss_plot.plot(pen='w')
-    
-    timer = pg.QtCore.QTimer(training_loss_curve)
+    loss_plot.addLegend()
+
+    for name in names:
+        color = telemetry_registry.get_loss_color(name)
+        curves[name] = loss_plot.plot(pen=color, name=name)
+
+    timer = pg.QtCore.QTimer(curves[names[0]])
     timer.timeout.connect(refresh)
     timer.start(20)
 

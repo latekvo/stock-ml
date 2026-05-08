@@ -52,9 +52,12 @@ def train():
         eval_out = model(e_x)
         eval_loss = loss_fn(eval_out, e_y)
 
-        telemetry_registry.log_loss(loss.item())
-        telemetry_registry.log_eval_loss(eval_loss.item())
+        telemetry_registry.log_loss('training', loss.item())
+        telemetry_registry.log_loss('eval', eval_loss.item())
 
+
+telemetry_registry.add_loss_entry('training', 'r')
+telemetry_registry.add_loss_entry('eval', 'w')
 
 threading.Thread(target=train, daemon=True).start()
 
