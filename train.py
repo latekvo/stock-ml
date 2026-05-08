@@ -7,12 +7,10 @@ import threading
 from src.ui.app import run_visualisation_app
 from src.core.telemetry import TelemetryRegistry
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device_name = "cuda" if torch.cuda.is_available() else "cpu"
+device = torch.device(device_name)
 
 print("DEVICE:", device)
-
-EPOCHS = 1000
-BATCH_SIZE = 1000
 
 telemetry_registry = TelemetryRegistry()
 
@@ -23,7 +21,9 @@ OUTPUT_CANDLES = 3
 
 def train():
     ds = FinancialDataset(INPUT_CANDLES, OUTPUT_CANDLES)
-    dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True)
+
+    x = ds.x.to(device, non_blocking=True)
+    y = ds.y.to(device, non_blocking=True)
 
     model = Net(ds.net_inputs, 128, ds.net_outputs).to(device)
     loss_fn = torch.nn.CrossEntropyLoss()
@@ -34,16 +34,18 @@ def train():
         foreach=True,
     )
 
-    for epoch in range(EPOCHS):
-        for x, y in dl:
-            x, y = x.to(device), y.to(device)
+    if device_name == "cuda":
+        model = torch.compile(model)
+        torch.backends.cudnn.benchmark = True
+        torch.set_float32_matmul_precision("high")
 
-            out = model(x)
-            loss = loss_fn(out, y)
+    while True:
+        out = model(x)
+        loss = loss_fn(out, y)
 
-            opt.zero_grad()
-            loss.backward()
-            opt.step()
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
 
         telemetry_registry.log_loss(loss.item())
 

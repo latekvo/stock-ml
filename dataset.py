@@ -61,6 +61,3 @@ class FinancialDataset(Dataset):
 
     def __len__(self):
         return len(self.x)
-
-    def __getitem__(self, i):
-        return self.x[i], self.y[i]
