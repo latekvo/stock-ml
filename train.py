@@ -100,10 +100,11 @@ def train():
 
         models[name] = Net(
             ds.net_inputs,
+            ds.net_outputs,
             variant['p_per_layer'],
             variant['layers'],
-            variant['a_fn'],
-            ds.net_outputs
+            variant['act'],
+            variant['residual'],
         ).to(device)
 
         opts[name] = torch.optim.AdamW(
