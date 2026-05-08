@@ -1,7 +1,7 @@
-from typing import TypedDict, Literal
+from typing import TypedDict
 
 import torch
-from model import Net
+from model import Net, Act
 from dataset import FinancialDataset
 import threading
 
@@ -31,9 +31,12 @@ class ModelVariant(TypedDict):
     name: str
     p_per_layer: int
     layers: int
-    learning_rate: float
+    lr: float
+    wd: float
     color: tuple[int, int, int, int]
-    a_fn: Literal["ReLU", "GELU"]
+    act: Act
+    residual: bool
+    normalize: bool
 
 # 1st benchmark results:
 # - LR noise seems to be proportional to: (lr*p_per_layer)/layers
@@ -68,20 +71,41 @@ class ModelVariant(TypedDict):
 # =====================
 # 3rd benchmark results:
 # - GELU performs significatnly better than ReLU. Loss is unfortunately inconsistant.
-# - 5e-2 (50x baseline) LR **significantly** improves train time without degrading loss. Sticking to 1e-2 for future tests.
+# - 5e-2 (50x baseline) LR **significantly** improves initial train time, but degrades after hours. Sticking to 1e-2 for short runs.
 # - 24/7 with 50x LR was extremely chaotic but ultimately outperformed 32/8
-# - GELU, 24/7(50*lr), 32/8 all achieved 10.7673 within 1500 epochs, baseline at epoch 2100 - ended training early.
+# - GELU, 24/7(50*lr), 32/8 all achieved 10.7673 within 1500 epochs, baseline projected to converge at epoch 2000 - ended training early.
+# 3rd benchmark conditions:
+# - const 7/3 i/o with fib offsets + candle merging
+# - net used 24/7 baseline, +8 p_per_layer variance, +1 layers variance. LR constant 1e-3
+# - ran tests for 1.5 hr (~1500 epochs) on M4 Pro
+# 3rd benchmark followups:
+# - test residual connections
+# - test more activation functions
+# - test much higher WD
+# =====================
+# 4th benchmark results:
+# - All tested variables provided marginal gains, all current optimizations yield 0.001% differences, so usefulness of CE-based comparison is exhausted.
+#   This means we have to move to market-simulation as the primary success metric
+# - 1e-2 LR is excessive and not worth the jitter. Even 1e-3 is excessive later on - we need to use LR scheduler.
+# - Current approach to residual connections experiences high jitter and converges incredibly slowly - the current implementation must be wrong
+# 4th benchmark covered:
+# - SiLU vs GELU: They behave identically, but vary in jitter profile - GELU consistantly gets gigantic loss spikes. SiLU is always jittery in a predictable oscillating way.
+# - High WD seems to converge better, though it's within the margin of error. Keep it at 8e-2 for marginal gains.
+# - Residual connections are not usable with current implementation, requires work.
+# - Normalization appears worse, seems to amplify loss jitter, but within the margin of error.
 
-baseline = ModelVariant(name='baseline', p_per_layer=24, layers=7, learning_rate=1e-3, color=COLORS['m'], a_fn="ReLU")
-gelu = ModelVariant(name='gelu', p_per_layer=24, layers=7, learning_rate=1e-3, color=COLORS['r'], a_fn="GELU")
-high_lr = ModelVariant(name='high_lr', p_per_layer=24, layers=7, learning_rate=5e-2, color=COLORS['c'], a_fn="ReLU")
-deep_large = ModelVariant(name='deep_large', p_per_layer=32, layers=8, learning_rate=1e-3, color=COLORS['y'], a_fn="ReLU")  # keeping old for reference
+baseline =   ModelVariant(name='baseline',   p_per_layer=24, layers=8, lr=1e-3, wd=1e-2, color=COLORS['m'], act="GELU", residual=False, normalize=False)
+normalized = ModelVariant(name='normalized', p_per_layer=24, layers=8, lr=1e-3, wd=1e-2, color=COLORS['r'], act="GELU", residual=False, normalize=True)
+silu =       ModelVariant(name='silu',       p_per_layer=24, layers=8, lr=1e-3, wd=1e-2, color=COLORS['g'], act="SiLU", residual=False, normalize=False)
+high_wd =    ModelVariant(name='high_wd',    p_per_layer=24, layers=8, lr=1e-3, wd=3e-1, color=COLORS['c'], act="GELU", residual=False, normalize=False)
+residual =   ModelVariant(name='residual',   p_per_layer=24, layers=8, lr=1e-4, wd=1e-2, color=COLORS['y'], act="GELU", residual=True,  normalize=True)
 
 MODEL_VARIANTS: list[ModelVariant] = [
     baseline,
-    gelu,
-    high_lr,
-    deep_large
+    normalized,
+    silu,
+    high_wd,
+    residual,
 ]
 
 def train():
@@ -105,11 +129,13 @@ def train():
             variant['layers'],
             variant['act'],
             variant['residual'],
+            variant['normalize']
         ).to(device)
 
         opts[name] = torch.optim.AdamW(
             models[name].parameters(),
-            lr=variant['learning_rate'],
+            lr=variant['lr'],
+            weight_decay=variant['wd'],
             foreach=True,
         )
 
