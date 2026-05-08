@@ -1,3 +1,5 @@
+from typing import TypedDict
+
 import torch
 from torch.utils.data import DataLoader
 from model import Net
@@ -18,21 +20,32 @@ telemetry_registry = TelemetryRegistry()
 INPUT_CANDLES = 7
 OUTPUT_CANDLES = 3
 
-# class ModelSettings:
-#     params_per_layer: int
-#     layers: int
-#     learning_rate: float
+class ModelVariant(TypedDict):
+    name: str
+    p_per_layer: int
+    layers: int
+    learning_rate: float
 
-MODEL_VARIANTS = [
-    64,
-    128,
-    512,
+baseline = ModelVariant(name='baseline', p_per_layer=64, layers=2, learning_rate=1e-4)
+small = ModelVariant(name='small', p_per_layer=32, layers=2, learning_rate=1e-4)
+large = ModelVariant(name='large', p_per_layer=128, layers=2, learning_rate=1e-4)
+shallow = ModelVariant(name='shallow', p_per_layer=64, layers=1, learning_rate=1e-4)
+deep = ModelVariant(name='deep', p_per_layer=64, layers=3, learning_rate=1e-4)
+
+MODEL_VARIANTS: list[ModelVariant] = [
+    baseline,
+    small,
+    large,
+    shallow,
+    deep,
 ]
 
 COLORS = {
-    64: (0, 0, 255, 255),
-    128: (255, 0, 0, 255),
-    512: (0, 255, 0, 255),
+    'baseline': (255, 0, 255, 255),
+    'small': (255, 0, 0, 255),
+    'large': (0, 255, 0, 255),
+    'shallow': (0, 255, 255, 255),
+    'deep': (255, 255, 0, 255),
 }
 
 def train():
@@ -47,11 +60,11 @@ def train():
     opts = {}
 
     for variant in MODEL_VARIANTS:
-        models[variant] = Net(ds.net_inputs, variant, ds.net_outputs).to(device)
-        opts[variant] = torch.optim.AdamW(
-            models[variant].parameters(),
-            lr=1e-4,
-            weight_decay=0.015,
+        name = variant['name']
+        models[name] = Net(ds.net_inputs, variant['p_per_layer'], variant['layers'], ds.net_outputs).to(device)
+        opts[name] = torch.optim.AdamW(
+            models[name].parameters(),
+            lr=variant['learning_rate'],
             foreach=True,
         )
 
@@ -64,8 +77,9 @@ def train():
 
     while True:
         for variant in MODEL_VARIANTS:
-            model = models[variant]
-            opt = opts[variant]
+            name = variant['name']
+            model = models[name]
+            opt = opts[name]
 
             out = model(t_x)
             loss = loss_fn(out, t_y)
@@ -77,18 +91,19 @@ def train():
             eval_out = model(e_x)
             eval_loss = loss_fn(eval_out, e_y)
 
-            telemetry_registry.log_loss(str(variant) + '_training', loss.item())
-            telemetry_registry.log_loss(str(variant) + '_eval', eval_loss.item())
+            telemetry_registry.log_loss(str(name) + '_training', loss.item())
+            telemetry_registry.log_loss(str(name) + '_eval', eval_loss.item())
 
 
 for variant in MODEL_VARIANTS:
-    e_color = COLORS[variant]
+    name = variant['name']
+    e_color = COLORS[name]
     color = list(e_color)
     color[3] = 128
     t_color = tuple(color)
 
-    telemetry_registry.add_loss_entry(str(variant) + '_training', t_color)
-    telemetry_registry.add_loss_entry(str(variant) + '_eval', e_color)
+    telemetry_registry.add_loss_entry(name + '_training', t_color)
+    telemetry_registry.add_loss_entry(name + '_eval', e_color)
 
 threading.Thread(target=train, daemon=True).start()
 
