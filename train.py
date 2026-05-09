@@ -88,24 +88,17 @@ class ModelVariant(TypedDict):
 #   This means we have to move to market-simulation as the primary success metric
 # - 1e-2 LR is excessive and not worth the jitter. Even 1e-3 is excessive later on - we need to use LR scheduler.
 # - Current approach to residual connections experiences high jitter and converges incredibly slowly - the current implementation must be wrong
-# 4th benchmark covered:
+# - Achieved 10.76724: bearly a 0.003% improvement, possibly due to long runtime (~1900 epochs)
+# 4th benchmark conclusions:
 # - SiLU vs GELU: They behave identically, but vary in jitter profile - GELU consistantly gets gigantic loss spikes. SiLU is always jittery in a predictable oscillating way.
 # - High WD seems to converge better, though it's within the margin of error. Keep it at 8e-2 for marginal gains.
 # - Residual connections are not usable with current implementation, requires work.
 # - Normalization appears worse, seems to amplify loss jitter, but within the margin of error.
 
-baseline =   ModelVariant(name='baseline',   p_per_layer=24, layers=8, lr=1e-3, wd=1e-2, color=COLORS['m'], act="GELU", residual=False, normalize=False)
-normalized = ModelVariant(name='normalized', p_per_layer=24, layers=8, lr=1e-3, wd=1e-2, color=COLORS['r'], act="GELU", residual=False, normalize=True)
-silu =       ModelVariant(name='silu',       p_per_layer=24, layers=8, lr=1e-3, wd=1e-2, color=COLORS['g'], act="SiLU", residual=False, normalize=False)
-high_wd =    ModelVariant(name='high_wd',    p_per_layer=24, layers=8, lr=1e-3, wd=3e-1, color=COLORS['c'], act="GELU", residual=False, normalize=False)
-residual =   ModelVariant(name='residual',   p_per_layer=24, layers=8, lr=1e-4, wd=1e-2, color=COLORS['y'], act="GELU", residual=True,  normalize=True)
+baseline =   ModelVariant(name='baseline', p_per_layer=24, layers=8, lr=1e-3, wd=8e-2, color=COLORS['w'], act="SiLU", residual=False, normalize=False)
 
 MODEL_VARIANTS: list[ModelVariant] = [
     baseline,
-    normalized,
-    silu,
-    high_wd,
-    residual,
 ]
 
 def train():
