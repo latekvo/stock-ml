@@ -5,8 +5,18 @@ from torch.nn import Module
 
 Act = Literal["ReLU", "GELU", "SiLU"]
 
+
 class Net(nn.Module):
-    def __init__(self, in_dim, out_dim, p_per_layer = 24, l_count = 8, act: Act = "GELU", use_residual: bool = False, normalize: bool = False):
+    def __init__(
+        self,
+        in_dim,
+        out_dim,
+        p_per_layer=24,
+        l_count=8,
+        act: Act = "GELU",
+        use_residual: bool = False,
+        normalize: bool = False,
+    ):
         super().__init__()
 
         self.use_residual = use_residual
@@ -18,10 +28,7 @@ class Net(nn.Module):
         else:
             activation = nn.ReLU
 
-        layers: list[Module] = [
-            nn.Linear(in_dim, p_per_layer),
-            activation()
-        ]
+        layers: list[Module] = [nn.Linear(in_dim, p_per_layer), activation()]
 
         for _ in range(l_count):
             if normalize:
@@ -55,4 +62,3 @@ class Net(nn.Module):
                 x = y
 
         return x
-

@@ -16,16 +16,17 @@ print("DEVICE:", device)
 telemetry_registry = TelemetryRegistry()
 
 COLORS = {
-    'r': (255, 0, 0, 255),
-    'g': (0, 255, 0, 255),
-    'b': (0, 0, 255, 255),
-    'c': (0, 255, 255, 255),
-    'm': (255, 0, 255, 255),
-    'y': (255, 255, 0, 255),
+    "r": (255, 0, 0, 255),
+    "g": (0, 255, 0, 255),
+    "b": (0, 0, 255, 255),
+    "c": (0, 255, 255, 255),
+    "m": (255, 0, 255, 255),
+    "y": (255, 255, 0, 255),
 }
 
 INPUT_CANDLES = 7
 OUTPUT_CANDLES = 3
+
 
 class ModelVariant(TypedDict):
     name: str
@@ -37,6 +38,7 @@ class ModelVariant(TypedDict):
     act: Act
     residual: bool
     normalize: bool
+
 
 # 1st benchmark results:
 # - LR noise seems to be proportional to: (lr*p_per_layer)/layers
@@ -95,11 +97,22 @@ class ModelVariant(TypedDict):
 # - Residual connections are not usable with current implementation, requires work.
 # - Normalization appears worse, seems to amplify loss jitter, but within the margin of error.
 
-baseline =   ModelVariant(name='baseline', p_per_layer=24, layers=8, lr=1e-3, wd=8e-2, color=COLORS['w'], act="SiLU", residual=False, normalize=False)
+baseline = ModelVariant(
+    name="baseline",
+    p_per_layer=24,
+    layers=8,
+    lr=1e-3,
+    wd=8e-2,
+    color=COLORS["w"],
+    act="SiLU",
+    residual=False,
+    normalize=False,
+)
 
 MODEL_VARIANTS: list[ModelVariant] = [
     baseline,
 ]
+
 
 def train():
     ds = FinancialDataset(INPUT_CANDLES, OUTPUT_CANDLES)
@@ -113,22 +126,22 @@ def train():
     opts = {}
 
     for variant in MODEL_VARIANTS:
-        name = variant['name']
+        name = variant["name"]
 
         models[name] = Net(
             ds.net_inputs,
             ds.net_outputs,
-            variant['p_per_layer'],
-            variant['layers'],
-            variant['act'],
-            variant['residual'],
-            variant['normalize']
+            variant["p_per_layer"],
+            variant["layers"],
+            variant["act"],
+            variant["residual"],
+            variant["normalize"],
         ).to(device)
 
         opts[name] = torch.optim.AdamW(
             models[name].parameters(),
-            lr=variant['lr'],
-            weight_decay=variant['wd'],
+            lr=variant["lr"],
+            weight_decay=variant["wd"],
             foreach=True,
         )
 
@@ -141,7 +154,7 @@ def train():
 
     while True:
         for variant in MODEL_VARIANTS:
-            name = variant['name']
+            name = variant["name"]
             model = models[name]
             opt = opts[name]
 
@@ -151,8 +164,8 @@ def train():
             loss = loss_fn(out, t_y)
             eval_loss = loss_fn(eval_out, e_y)
 
-            telemetry_registry.log_loss(str(name) + '_training', loss.item())
-            telemetry_registry.log_loss(str(name) + '_eval', eval_loss.item())
+            telemetry_registry.log_loss(str(name) + "_training", loss.item())
+            telemetry_registry.log_loss(str(name) + "_eval", eval_loss.item())
 
             opt.zero_grad()
             loss.backward()
@@ -160,14 +173,14 @@ def train():
 
 
 for variant in MODEL_VARIANTS:
-    name = variant['name']
-    e_color = variant['color']
+    name = variant["name"]
+    e_color = variant["color"]
     color = list(e_color)
     color[3] = 128
     t_color = tuple(color)
 
-    telemetry_registry.add_loss_entry(name + '_training', t_color)
-    telemetry_registry.add_loss_entry(name + '_eval', e_color)
+    telemetry_registry.add_loss_entry(name + "_training", t_color)
+    telemetry_registry.add_loss_entry(name + "_eval", e_color)
 
 threading.Thread(target=train, daemon=True).start()
 
