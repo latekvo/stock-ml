@@ -16,6 +16,7 @@ print("DEVICE:", device)
 telemetry_registry = TelemetryRegistry()
 
 COLORS = {
+    "w": (255, 255, 255, 255),
     "r": (255, 0, 0, 255),
     "g": (0, 255, 0, 255),
     "b": (0, 0, 255, 255),

@@ -1,8 +1,6 @@
 import numpy as np
 
-LOSS_HISTORY_WINDOW = 1000
-
-LossHistory = np.ndarray[tuple[int], np.dtype[np.float64]]
+LossHistory = list[np.float64]
 Color = str | tuple[int, int, int]
 
 
@@ -11,7 +9,7 @@ class _LossHistoryData:
     color: Color
 
     def __init__(self, color: Color):
-        self.loss_history = np.zeros(LOSS_HISTORY_WINDOW)
+        self.loss_history = []
         self.color = color
 
 
@@ -19,8 +17,6 @@ class TelemetryRegistry:
     _loss_registry: dict[str, _LossHistoryData]
 
     def __init__(self):
-        self._loss_history = np.zeros(LOSS_HISTORY_WINDOW)
-        self._eval_loss_history = np.zeros(LOSS_HISTORY_WINDOW)
         self._loss_registry = {}
 
     def get_loss_history(self, entry_name: str) -> LossHistory:
@@ -40,5 +36,4 @@ class TelemetryRegistry:
     def log_loss(self, entry_name: str, loss: np.float64):
         assert entry_name in self._loss_registry
         data = self._loss_registry[entry_name]
-        data.loss_history[:-1] = data.loss_history[1:]
-        data.loss_history[-1] = loss
+        data.loss_history.append(loss)
