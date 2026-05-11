@@ -49,6 +49,8 @@ class ModelVariant(TypedDict):
     normalize: bool
     optimizer: Literal["LBFGS", "AdamW"]
     lr_scheduler_gamma: float
+    lr_scheduler_step: int
+    lr_scheduler: Literal["step", "on_plateau"]
 
 
 # 1st benchmark results:
@@ -114,42 +116,36 @@ class ModelVariant(TypedDict):
 # - Increasing layers & parameters sets the loss floor higher (bad) due to unknown reasons (tested on 25k epochs, no difference)
 # - absolute achievably floor with the current architecture seems to be 10.7671
 # - LR Scheduling dramatically increases stability and steady learning rate at final stages of learning.
+# - on_plateau LR scheduling does not work well with default settings. Too little value to tune it at this point in time
 
 baseline: ModelVariant = {
     "name": "baseline",
     "p_per_layer": 24,
     "layers": 8,
-    "lr": 1e-3,
+    "lr": 3e-3,
     "wd": 8e-2,
     "color": COLORS["w"],
     "act": "SiLU",
     "residual": False,
     "normalize": False,
     "optimizer": "AdamW",
-    "lr_scheduler_gamma": 1.0,
+    "lr_scheduler_gamma": 0.989,  # ~10% LR every 2k epochs at step=10
+    "lr_scheduler_step": 10,
+    "lr_scheduler": "step",
 }
 
 
-high_lr_high_lrs_gamma = {
+on_plateau = {
     **baseline,
-    "name": "high_lr_high_lrs_gamma",
+    "name": "on_plateau",
     "color": COLORS["c"],
-    "lr": 3e-3,
-    "lr_scheduler_gamma": 0.9773,  # ~10% LR every 1k epochs
+    "lr_scheduler": "on_plateau",
 }
 
-high_lr_low_lrs_gamma = {
-    **baseline,
-    "name": "high_lr_low_lrs_gamma",
-    "color": COLORS["y"],
-    "lr": 3e-3,
-    "lr_scheduler_gamma": 0.989,  # ~10% LR every 2k epochs
-}
 
 MODEL_VARIANTS: list[ModelVariant] = [
     baseline,
-    high_lr_low_lrs_gamma,
-    high_lr_high_lrs_gamma,
+    on_plateau,
 ]
 
 
@@ -183,17 +179,26 @@ def train():
                 models[name].parameters(),
                 lr=variant["lr"],
             )
-        else:
+        elif variant["optimizer"] == "AdamW":
             opts[name] = torch.optim.AdamW(
                 models[name].parameters(),
                 lr=variant["lr"],
                 weight_decay=variant["wd"],
                 foreach=True,
             )
+        else:
+            raise ValueError("Invalid `optimizer` value")
 
-        lr_schedulers[name] = lr_scheduler.StepLR(
-            opts[name], step_size=10, gamma=variant["lr_scheduler_gamma"]
-        )
+        if variant["lr_scheduler"] == "on_plateau":
+            lr_schedulers[name] = lr_scheduler.ReduceLROnPlateau(opts[name], "min")
+        elif variant["lr_scheduler"] == "step":
+            lr_schedulers[name] = lr_scheduler.StepLR(
+                opts[name],
+                step_size=variant["lr_scheduler_step"],
+                gamma=variant["lr_scheduler_gamma"],
+            )
+        else:
+            raise ValueError("Invalid `lr_scheduler` value")
 
     loss_fn = torch.nn.CrossEntropyLoss()
 
@@ -225,7 +230,10 @@ def train():
             else:
                 opt.step()
 
-            lr_schedulers[name].step()
+            if variant["lr_scheduler"] == "on_plateau":
+                lr_schedulers[name].step(loss)
+            elif variant["lr_scheduler"] == "step":
+                lr_schedulers[name].step()
 
             telemetry_registry.log_loss(str(name) + "_training", loss.item())
             telemetry_registry.log_loss(str(name) + "_eval", eval_loss.item())
