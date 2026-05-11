@@ -1,6 +1,8 @@
-from typing import TypedDict
+from typing import TypedDict, Literal
 
 import torch
+from torch.optim import lr_scheduler
+
 from model import Net, Act
 from dataset import FinancialDataset
 import threading
@@ -45,6 +47,8 @@ class ModelVariant(TypedDict):
     act: Act
     residual: bool
     normalize: bool
+    optimizer: Literal["LBFGS", "AdamW"]
+    lr_scheduler_gamma: float
 
 
 # 1st benchmark results:
@@ -103,21 +107,49 @@ class ModelVariant(TypedDict):
 # - High WD seems to converge better, though it's within the margin of error. Keep it at 8e-2 for marginal gains.
 # - Residual connections are not usable with current implementation, requires work.
 # - Normalization appears worse, seems to amplify loss jitter, but within the margin of error.
+# =====================
+# minor benchmarks:
+# - AdamW vs LBFGS: AdamW converges faster and to lower values. LBFGS is much less noisy.
+# - Normalization significantly slows down large networks, likely due to graph breaks (code issue, not pytorch issue)
+# - Increasing layers & parameters sets the loss floor higher (bad) due to unknown reasons (tested on 25k epochs, no difference)
+# - absolute achievably floor with the current architecture seems to be 10.7671
+# - LR Scheduling dramatically increases stability and steady learning rate at final stages of learning.
 
-baseline = ModelVariant(
-    name="baseline",
-    p_per_layer=24,
-    layers=8,
-    lr=1e-3,
-    wd=8e-2,
-    color=COLORS["w"],
-    act="SiLU",
-    residual=False,
-    normalize=False,
-)
+baseline: ModelVariant = {
+    "name": "baseline",
+    "p_per_layer": 24,
+    "layers": 8,
+    "lr": 1e-3,
+    "wd": 8e-2,
+    "color": COLORS["w"],
+    "act": "SiLU",
+    "residual": False,
+    "normalize": False,
+    "optimizer": "AdamW",
+    "lr_scheduler_gamma": 1.0,
+}
+
+
+high_lr_high_lrs_gamma = {
+    **baseline,
+    "name": "high_lr_high_lrs_gamma",
+    "color": COLORS["c"],
+    "lr": 3e-3,
+    "lr_scheduler_gamma": 0.9773,  # ~10% LR every 1k epochs
+}
+
+high_lr_low_lrs_gamma = {
+    **baseline,
+    "name": "high_lr_low_lrs_gamma",
+    "color": COLORS["y"],
+    "lr": 3e-3,
+    "lr_scheduler_gamma": 0.989,  # ~10% LR every 2k epochs
+}
 
 MODEL_VARIANTS: list[ModelVariant] = [
     baseline,
+    high_lr_low_lrs_gamma,
+    high_lr_high_lrs_gamma,
 ]
 
 
@@ -131,6 +163,7 @@ def train():
 
     models = {}
     opts = {}
+    lr_schedulers = {}
 
     for variant in MODEL_VARIANTS:
         name = variant["name"]
@@ -145,11 +178,21 @@ def train():
             variant["normalize"],
         ).to(device)
 
-        opts[name] = torch.optim.AdamW(
-            models[name].parameters(),
-            lr=variant["lr"],
-            weight_decay=variant["wd"],
-            foreach=True,
+        if variant["optimizer"] == "LBFGS":
+            opts[name] = torch.optim.LBFGS(
+                models[name].parameters(),
+                lr=variant["lr"],
+            )
+        else:
+            opts[name] = torch.optim.AdamW(
+                models[name].parameters(),
+                lr=variant["lr"],
+                weight_decay=variant["wd"],
+                foreach=True,
+            )
+
+        lr_schedulers[name] = lr_scheduler.StepLR(
+            opts[name], step_size=10, gamma=variant["lr_scheduler_gamma"]
         )
 
     loss_fn = torch.nn.CrossEntropyLoss()
@@ -165,10 +208,7 @@ def train():
             model = models[name]
             opt = opts[name]
 
-            out = model(t_x)
             eval_out = model(e_x)
-
-            loss = loss_fn(out, t_y)
             eval_loss = loss_fn(eval_out, e_y)
 
             def calc_loss():
