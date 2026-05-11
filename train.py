@@ -8,7 +8,13 @@ import threading
 from src.ui.app import run_visualisation_app
 from src.core.telemetry import TelemetryRegistry
 
-device_name = "cuda" if torch.cuda.is_available() else "cpu"
+device_name = "cpu"
+
+if torch.cuda.is_available():
+    device_name = "cuda"
+if torch.mps.is_available():
+    device_name = "mps"
+
 device = torch.device(device_name)
 
 print("DEVICE:", device)
@@ -165,12 +171,24 @@ def train():
             loss = loss_fn(out, t_y)
             eval_loss = loss_fn(eval_out, e_y)
 
+            def calc_loss():
+                out = model(t_x)
+                loss = loss_fn(out, t_y)
+                opt.zero_grad()
+                loss.backward()
+                return loss
+
+            loss = calc_loss()
+
+            if variant["optimizer"] == "LBFGS":
+                opt.step(lambda: loss)
+            else:
+                opt.step()
+
+            lr_schedulers[name].step()
+
             telemetry_registry.log_loss(str(name) + "_training", loss.item())
             telemetry_registry.log_loss(str(name) + "_eval", eval_loss.item())
-
-            opt.zero_grad()
-            loss.backward()
-            opt.step()
 
 
 for variant in MODEL_VARIANTS:
