@@ -1,7 +1,10 @@
 from typing import Literal
 
+import numpy as np
 from torch import nn
 from torch.nn import Module
+
+from src.core.candles import CandleSequence
 
 Act = Literal["ReLU", "GELU", "SiLU"]
 
@@ -62,3 +65,15 @@ class Net(nn.Module):
                 x = y
 
         return x
+
+
+class AbstractNet(nn.Module):
+    def __init__(self, backend: nn.Module):
+        super().__init__()
+        self.net = backend
+
+    def forward(self, sequence: CandleSequence) -> CandleSequence:
+        x = np.zeros(0)
+        y = self.net(x)
+        out_sequence = y
+        return out_sequence

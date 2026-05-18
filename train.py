@@ -135,18 +135,14 @@ baseline: ModelVariant = {
 }
 
 
-on_plateau = {
+template = {
     **baseline,
-    "name": "on_plateau",
+    "name": "template",
     "color": COLORS["c"],
-    "lr_scheduler": "on_plateau",
 }
 
 
-MODEL_VARIANTS: list[ModelVariant] = [
-    baseline,
-    on_plateau,
-]
+MODEL_VARIANTS: list[ModelVariant] = [baseline]
 
 
 def train():
